@@ -1,0 +1,12 @@
+#ignore .vscode
+.vscode/
+
+#ignore linux binary
+emulator
+
+#ignore windows binary
+emulator.exe
+
+#riscv demo app
+rv_app.bin
+rv_app.elf
