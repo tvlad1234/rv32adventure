@@ -1,9 +1,14 @@
 /*
 * RISC-V adventures
-* idk what im doing (writing an emulator i guess)
+* i made a RV32I virtual machine
+* 
+* RV32I User-mode ISA
+* 64k of RAM at 0x80000000
+* UART register at 0x10000000
+* 
 */
 
-#define CRT_SECURE_NO_WARNINGS // MSVC silliness
+#define _CRT_SECURE_NO_WARNINGS // MSVC silliness
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,34 +17,54 @@
 // Where the goodies live
 #include "rv32i.h"
 
-uint32_t program[]={ 
-	// XOR instruction test
-	0x4d200293,
-	0x09900313,
-	0x0062c3b3,
-	0x0063ce33
-};
-
-int main()
+int main(int argc, char* argv[])
 {
-	rv32hart cpu;	  // instantiate CPU
+	rv32core cpu;	  // instantiate CPU
 	ram_clear(&cpu);  // clear RAM
-	hart_reset(&cpu); // reset CPU
+	core_reset(&cpu); // reset CPU
 	
-	loadProgram(&cpu, program, _countof(program));
+	if (argc < 2)
+	{
+		printf("Usage: %s [filename]\n", argv[0]);
+		exit(-1);
+	}
+
+	FILE* binfile;
+	binfile = fopen(argv[1], "rb");
+	if (binfile == NULL)
+	{
+		printf("Error loading file. %s\n", argv[1]);
+		exit(-2);
+	}
+
+	fseek(binfile, 0, SEEK_END);
+	size_t filesize = ftell(binfile);
+	fseek(binfile, 0, SEEK_SET);
+
+	if (filesize > RAM_SIZE)
+	{
+		printf("File %s exceeds RAM size by %d bytes\n", argv[1], filesize - RAM_SIZE);
+		fclose(binfile);
+		exit(-2);
+	}
+
+	fread(cpu.ram, 1, filesize, binfile);
+	fclose(binfile);
 
 	int fault = 0;
 	while (!fault)
 	{
 		fault = rv32_execute(&cpu); // execute one instruction
+
+		/*
 		if (!fault) {
-			hart_print(&cpu);   // show CPU contents
+			core_print(&cpu);   // show CPU contents
 			printf("****************\n");
 		}
+		*/
 	}
-
-	printf("FAULT! ");
-
+	
+	printf("\n");
 	switch (fault)
 	{
 
@@ -47,12 +72,20 @@ int main()
 		printf("Undefined opcode\n");
 		break;
 
-	case UNDEF_MICROOP:
-		printf("Undefined micro-operation\n");
+	case UNDEF_FUNC3:
+		printf("Undefined func3\n");
 		break;
 
 	case PC_UNALIGN:
 		printf("Unaligned PC\n");
+		break;
+
+	case PC_OUT_OF_RANGE:
+		printf("PC out of range!\n");
+		break;
+
+	case SYSCON_SHUTDOWN:
+		printf("Poweroff by SYSCON\n");
 		break;
 
 	default:

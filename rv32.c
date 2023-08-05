@@ -7,19 +7,19 @@
 #include "opcodes.h"
 
 // Reset the HART (zero the registers and PC)
-void hart_reset(rv32hart* hart)
+void core_reset(rv32core* core)
 {
 	for (int i = 0; i < 32; i++)
-		hart->x[i] = 0;
-	hart->pc = RAM_BASE;
-	hart->inst_count = 0;
+		core->x[i] = 0;
+	core->pc = RAM_BASE;
+	core->inst_count = 0;
 }
 
 // Clear RAM
-void ram_clear(rv32hart* hart)
+void ram_clear(rv32core* core)
 {
 	for (int i = 0; i < RAM_SIZE; i++)
-		hart->ram[i] = 0;
+		core->ram[i] = 0;
 }
 
 //Register ABI names
@@ -30,92 +30,135 @@ const char* reg_names[] = {
 };
 
 // Print register contents
-void hart_print(rv32hart* hart)
+void core_print(rv32core* core)
 {
 	printf("\n");
 	for (int i = 1; i < 31; i++)
-		printf("x%02d (%s): 0x%08x\t%d\n", i, reg_names[i], hart->x[i], hart->x[i]);
-	printf("PC:  0x%08x\n", hart->pc);
+		printf("x%02d (%s): 0x%08x\t%d\n", i, reg_names[i], core->x[i], core->x[i]);
+	printf("PC:  0x%08x\n", core->pc);
 }
 
 // RAM access
-uint8_t ram_read_8(rv32hart* hart, uint32_t addr)
+uint8_t ram_read_8(rv32core* core, uint32_t addr)
 {
 	addr -= RAM_BASE;
-	return hart->ram[addr];
+	return core->ram[addr];
 }
 
-uint16_t ram_read_16(rv32hart* hart, uint32_t addr)
+uint16_t ram_read_16(rv32core* core, uint32_t addr)
 {
 	addr -= RAM_BASE;
-	uint16_t r = (hart->ram[addr]) | (hart->ram[addr + 1] << 8);
+	uint16_t r = (core->ram[addr]) | (core->ram[addr + 1] << 8);
 	return r;
 }
 
-uint32_t ram_read_32(rv32hart* hart, uint32_t addr)
+uint32_t ram_read_32(rv32core* core, uint32_t addr)
 {
 	addr -= RAM_BASE;
-	uint32_t r = (hart->ram[addr]) | (hart->ram[addr + 1] << 8) | (hart->ram[addr + 2] << 16) | (hart->ram[addr+3] << 24);
+	uint32_t r = (core->ram[addr]) | (core->ram[addr + 1] << 8) | (core->ram[addr + 2] << 16) | (core->ram[addr+3] << 24);
 	return r;
 }
 
-void ram_store_8(rv32hart* hart, uint32_t addr, uint8_t value)
+void ram_store_8(rv32core* core, uint32_t addr, uint8_t value)
 {
 	addr -= RAM_BASE;
-	hart->ram[addr] = value;
+	core->ram[addr] = value;
 }
 
-void ram_store_16(rv32hart* hart, uint32_t addr, uint16_t value)
+void ram_store_16(rv32core* core, uint32_t addr, uint16_t value)
 {
 	addr -= RAM_BASE;
-	hart->ram[addr] = value & 0xff;
-	hart->ram[addr+1] = (value >> 8) & 0xff;
+	core->ram[addr] = value & 0xff;
+	core->ram[addr+1] = (value >> 8) & 0xff;
 }
 
-void ram_store_32(rv32hart* hart, uint32_t addr, uint32_t value)
+void ram_store_32(rv32core* core, uint32_t addr, uint32_t value)
 {
 	addr -= RAM_BASE;
-	hart->ram[addr] = value & 0xff;
-	hart->ram[addr + 1] = (value >> 8) & 0xff;
-	hart->ram[addr + 2] = (value >> 16) & 0xff;
-	hart->ram[addr + 3] = (value >> 24) & 0xff;
+	core->ram[addr] = value & 0xff;
+	core->ram[addr + 1] = (value >> 8) & 0xff;
+	core->ram[addr + 2] = (value >> 16) & 0xff;
+	core->ram[addr + 3] = (value >> 24) & 0xff;
 }
 
 // Load program from uint32_t array into memory
-void loadProgram(rv32hart* hart, uint32_t program[], int len)
+void loadProgram(rv32core* core, uint32_t program[], int len)
 {
 	for (int i = 0; i < len; i++)
-		ram_store_32(hart, RAM_BASE + (4*i), program[i]);
+		ram_store_32(core, RAM_BASE + (4*i), program[i]);
+}
+
+// MMIO reads
+uint32_t mmio_load(uint32_t addr)
+{
+	return 1234;
+}
+
+int mmio_store(uint32_t addr, uint32_t val)
+{
+	if (addr == 0x11100000) // SYSCON
+	{
+		if (val == 0x5555) // POWEROFF
+			return SYSCON_SHUTDOWN;
+	}
+	else if (addr == 0x10000000) // UART
+	{
+		printf("%c", val);
+	}
+	return 0;
 }
 
 // Execute a single instruction
-int rv32_execute(rv32hart* hart)
+int rv32_execute(rv32core* core)
 {
-	uint32_t inst = ram_read_32(hart, hart->pc);
-	uint8_t opcode = get_opcode(inst);
-
 	int fault = 0;
 
-	if (hart->pc & 0b11 != 0)
+	if (core->pc & 0b11 != 0)
 		return PC_UNALIGN;
+
+	if (core->pc > (RAM_END - 4) || core->pc < RAM_BASE)
+		return PC_OUT_OF_RANGE;
+
+	uint32_t inst = ram_read_32(core, core->pc);
+	uint8_t opcode = get_opcode(inst);
 
 	switch (opcode)
 	{
 
 	case OP_IMM:
-		fault = exec_op_imm(hart, inst);
+		fault = exec_op_imm(core, inst);
 		break;
 	
 	case OP_LUI:
-		fault = exec_op_lui(hart, inst);
+		fault = exec_op_lui(core, inst);
 		break;
 
 	case OP_AUIPC:
-		fault = exec_op_auipc(hart, inst);
+		fault = exec_op_auipc(core, inst);
 		break;
 
 	case OP_OP:
-		fault = exec_op_op(hart, inst);
+		fault = exec_op_op(core, inst);
+		break;
+
+	case OP_JAL:
+		fault = exec_op_jal(core, inst);
+		break;
+	
+	case OP_JALR:
+		fault = exec_op_jalr(core, inst);
+		break;
+	
+	case OP_BRANCH:
+		fault = exec_op_branch(core, inst);
+		break;
+
+	case OP_LOAD:
+		fault = exec_op_load(core, inst);
+		break;
+
+	case OP_STORE:
+		fault = exec_op_store(core, inst);
 		break;
 
 	default:
@@ -123,9 +166,9 @@ int rv32_execute(rv32hart* hart)
 		break;
 	}
 
-	hart->pc += 4;
-	hart->inst_count++;
-	hart->x[0] = 0;
+	core->pc += 4;
+	core->inst_count++;
+	core->x[0] = 0;
 	return fault;
 
 }
