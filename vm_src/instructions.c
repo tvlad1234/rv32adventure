@@ -251,7 +251,7 @@ int exec_op_load(rv32core* core, uint32_t inst)
 	uint32_t addr = signextend_12(imm_type_i(inst)) + core->x[rs1];
 	uint8_t func3 = get_func3(inst);
 
-	if (addr < RAM_BASE || addr > RAM_END) // MMIO
+	if (!inMemory(addr)) // MMIO
 	{
 		core->x[rd] = mmio_load(addr);
 		return 0;
@@ -261,23 +261,23 @@ int exec_op_load(rv32core* core, uint32_t inst)
 	{
 
 	case LW:
-		core->x[rd] = ram_read_32(core, addr);
+		core->x[rd] = mem_read_32(core, addr);
 		break;
 
 	case LH:
-		core->x[rd] = (int16_t)ram_read_16(core, addr);
+		core->x[rd] = (int16_t)mem_read_16(core, addr);
 		break;
 
 	case LHU:
-		core->x[rd] = ram_read_16(core, addr);
+		core->x[rd] = mem_read_16(core, addr);
 		break;
 
 	case LB:
-		core->x[rd] = (int8_t)ram_read_8(core, addr);
+		core->x[rd] = (int8_t)mem_read_8(core, addr);
 		break;
 
 	case LBU:
-		core->x[rd] = ram_read_8(core, addr);
+		core->x[rd] = mem_read_8(core, addr);
 		break;
 
 	default:
@@ -295,22 +295,25 @@ int exec_op_store(rv32core* core, uint32_t inst)
 	uint32_t addr = signextend_12( ((inst >> 7) & 0x1F) | ((inst & 0xFE000000) >> 20)) + core->x[rs1];
 	uint8_t func3 = get_func3(inst);
 
-	if (addr < RAM_BASE || addr > RAM_END) // MMIO
+	if (!inMemory(addr)) // MMIO
 		return mmio_store(addr, core->x[rs2]);
+
+	if(inROM(addr))
+		return WRITE_ROM;
 
 	switch (func3)
 	{
 
 	case SW:
-		ram_store_32(core, addr, core->x[rs2]);
+		mem_store_32(core, addr, core->x[rs2]);
 		break;
 
 	case SH:
-		ram_store_16(core, addr, core->x[rs2]);
+		mem_store_16(core, addr, core->x[rs2]);
 		break;
 
 	case SB:
-		ram_store_8(core, addr, core->x[rs2]);
+		mem_store_8(core, addr, core->x[rs2]);
 		break;
 
 	default:

@@ -7,30 +7,29 @@
 #include "opcodes.h"
 
 // Reset the HART (zero the registers and PC)
-void core_reset(rv32core* core)
+void core_reset(rv32core *core)
 {
 	for (int i = 0; i < 32; i++)
 		core->x[i] = 0;
-	core->pc = RAM_BASE;
+	core->pc = ROM_BASE;
 	core->inst_count = 0;
 }
 
 // Clear RAM
-void ram_clear(rv32core* core)
+void ram_clear(rv32core *core)
 {
 	for (int i = 0; i < RAM_SIZE; i++)
 		core->ram[i] = 0;
 }
 
-//Register ABI names
-const char* reg_names[] = {
+// Register ABI names
+const char *reg_names[] = {
 	"zero", "ra ", "sp ", "gp ", "tp ", "t0 ", "t1 ", "t2 ", "s0 ", "s1 ", "a0 ",
 	"a1 ", "a2 ", "a3 ", "a4 ", "a5 ", "a6 ", "a7 ", "s2 ", "s3 ", "s4 ", "s5 ",
-	"s6 ", "s7 ", "s8 ", "s9 ", "s10", "s11", "t3 ", "t4 ", "t5 ", "t6 "
-};
+	"s6 ", "s7 ", "s8 ", "s9 ", "s10", "s11", "t3 ", "t4 ", "t5 ", "t6 "};
 
 // Print register contents
-void core_print(rv32core* core)
+void core_print(rv32core *core)
 {
 	printf("\n");
 	for (int i = 1; i < 31; i++)
@@ -38,60 +37,109 @@ void core_print(rv32core* core)
 	printf("PC:  0x%08x\n", core->pc);
 }
 
-// RAM access
-uint8_t ram_read_8(rv32core* core, uint32_t addr)
+uint8_t inRAM(uint32_t addr)
 {
-	addr -= RAM_BASE;
-	return core->ram[addr];
+	if (addr >= RAM_BASE && addr <= RAM_END)
+		return 1;
+	return 0;
 }
 
-uint16_t ram_read_16(rv32core* core, uint32_t addr)
+uint8_t inROM(uint32_t addr)
 {
-	addr -= RAM_BASE;
-	uint16_t r = (core->ram[addr]) | (core->ram[addr + 1] << 8);
+	if (addr >= ROM_BASE && addr <= ROM_END)
+		return 1;
+	return 0;
+}
+
+uint8_t inMemory(uint32_t addr)
+{
+	if ((addr >= RAM_BASE && addr <= RAM_END) || (addr >= ROM_BASE && addr <= ROM_END))
+		return 1;
+	return 0;
+}
+
+uint32_t getMemBase(uint32_t addr)
+{
+	if (inRAM(addr))
+		return RAM_BASE;
+
+	if (inROM(addr))
+		return ROM_BASE;
+
+	return 0;
+}
+
+uint8_t *memoryPointer(rv32core *core, uint32_t addr)
+{
+	if (inRAM(addr))
+		return core->ram;
+
+	if (inROM(addr))
+		return core->rom;
+
+	return 0;
+}
+
+// Memory access
+uint8_t mem_read_8(rv32core *core, uint32_t addr)
+{
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	return memPtr[addr];
+}
+
+uint16_t mem_read_16(rv32core *core, uint32_t addr)
+{
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	uint16_t r = (memPtr[addr]) | (memPtr[addr + 1] << 8);
 	return r;
 }
 
-uint32_t ram_read_32(rv32core* core, uint32_t addr)
+uint32_t mem_read_32(rv32core *core, uint32_t addr)
 {
-	addr -= RAM_BASE;
-	uint32_t r = (core->ram[addr]) | (core->ram[addr + 1] << 8) | (core->ram[addr + 2] << 16) | (core->ram[addr+3] << 24);
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	uint32_t r = (memPtr[addr]) | (memPtr[addr + 1] << 8) | (memPtr[addr + 2] << 16) | (memPtr[addr + 3] << 24);
 	return r;
 }
 
-void ram_store_8(rv32core* core, uint32_t addr, uint8_t value)
+void mem_store_8(rv32core *core, uint32_t addr, uint8_t value)
 {
-	addr -= RAM_BASE;
-	core->ram[addr] = value;
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	memPtr[addr] = value;
 }
 
-void ram_store_16(rv32core* core, uint32_t addr, uint16_t value)
+void mem_store_16(rv32core *core, uint32_t addr, uint16_t value)
 {
-	addr -= RAM_BASE;
-	core->ram[addr] = value & 0xff;
-	core->ram[addr+1] = (value >> 8) & 0xff;
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	memPtr[addr] = value & 0xff;
+	memPtr[addr + 1] = (value >> 8) & 0xff;
 }
 
-void ram_store_32(rv32core* core, uint32_t addr, uint32_t value)
+void mem_store_32(rv32core *core, uint32_t addr, uint32_t value)
 {
-	addr -= RAM_BASE;
-	core->ram[addr] = value & 0xff;
-	core->ram[addr + 1] = (value >> 8) & 0xff;
-	core->ram[addr + 2] = (value >> 16) & 0xff;
-	core->ram[addr + 3] = (value >> 24) & 0xff;
+	uint8_t *memPtr = memoryPointer(core, addr);
+	addr -= getMemBase(addr);
+	memPtr[addr] = value & 0xff;
+	memPtr[addr + 1] = (value >> 8) & 0xff;
+	memPtr[addr + 2] = (value >> 16) & 0xff;
+	memPtr[addr + 3] = (value >> 24) & 0xff;
 }
 
 // Load program from uint32_t array into memory
-void loadProgram(rv32core* core, uint32_t program[], int len)
+void loadProgram(rv32core *core, uint32_t program[], int len)
 {
 	for (int i = 0; i < len; i++)
-		ram_store_32(core, RAM_BASE + (4*i), program[i]);
+		mem_store_32(core, ROM_BASE + (4 * i), program[i]);
 }
 
 // MMIO reads
 uint32_t mmio_load(uint32_t addr)
 {
-	return 1234;
+	return 0xdeadbeef;
 }
 
 int mmio_store(uint32_t addr, uint32_t val)
@@ -109,17 +157,17 @@ int mmio_store(uint32_t addr, uint32_t val)
 }
 
 // Execute a single instruction
-int rv32_execute(rv32core* core)
+int rv32_execute(rv32core *core)
 {
 	int fault = 0;
 
 	if (core->pc & 0b11 != 0)
 		return PC_UNALIGN;
 
-	if (core->pc > (RAM_END - 4) || core->pc < RAM_BASE)
+	if (!inMemory(core->pc))
 		return PC_OUT_OF_RANGE;
 
-	uint32_t inst = ram_read_32(core, core->pc);
+	uint32_t inst = mem_read_32(core, core->pc);
 	uint8_t opcode = get_opcode(inst);
 
 	switch (opcode)
@@ -128,7 +176,7 @@ int rv32_execute(rv32core* core)
 	case OP_IMM:
 		fault = exec_op_imm(core, inst);
 		break;
-	
+
 	case OP_LUI:
 		fault = exec_op_lui(core, inst);
 		break;
@@ -144,11 +192,11 @@ int rv32_execute(rv32core* core)
 	case OP_JAL:
 		fault = exec_op_jal(core, inst);
 		break;
-	
+
 	case OP_JALR:
 		fault = exec_op_jalr(core, inst);
 		break;
-	
+
 	case OP_BRANCH:
 		fault = exec_op_branch(core, inst);
 		break;
@@ -170,5 +218,4 @@ int rv32_execute(rv32core* core)
 	core->inst_count++;
 	core->x[0] = 0;
 	return fault;
-
 }

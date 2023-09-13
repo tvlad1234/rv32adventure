@@ -12,34 +12,34 @@
 int errno;
 
 int mini_vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va);
-int mini_vpprintf(int (*puts)(char* s, int len, void* buf), void* buf, const char *fmt, va_list va);
+int mini_vpprintf(int (*puts)(char *s, int len, void *buf), void *buf, const char *fmt, va_list va);
 
 extern uint32_t UART;
 
 int _write(int fd, const char *buf, int size)
 {
-	for(int i = 0; i < size; i++){
-	    UART = buf[i];
+	for (int i = 0; i < size; i++)
+	{
+		UART = buf[i];
 	}
 	return size;
 }
 
-
 static int __puts_uart(char *s, int len, void *buf)
 {
-	_write( 0, s, len );
+	_write(0, s, len);
 	return len;
 }
 
-int printf(const char* format, ...)
+int printf(const char *format, ...)
 {
 	va_list args;
-	va_start( args, format );
+	va_start(args, format);
 	int ret_status = mini_vpprintf(__puts_uart, 0, format, args);
-	va_end( args );
+	va_end(args);
 	return ret_status;
 }
-	
+
 /* Some stuff from MUSL
 
 
@@ -77,119 +77,175 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define IS_CODEUNIT(c) ((unsigned)(c)-0xdf80 < 0x80)
 #define MB_CUR_MAX (CURRENT_UTF8 ? 4 : 1)
 
-typedef void * mbstate_t;
+typedef void *mbstate_t;
 
 #ifdef UNICODE
 size_t wcrtomb(char *restrict s, wchar_t wc, mbstate_t *restrict st)
 {
-	if (!s) return 1;
-	if ((unsigned)wc < 0x80) {
+	if (!s)
+		return 1;
+	if ((unsigned)wc < 0x80)
+	{
 		*s = wc;
 		return 1;
-	} else if (MB_CUR_MAX == 1) {
-		if (!IS_CODEUNIT(wc)) {
+	}
+	else if (MB_CUR_MAX == 1)
+	{
+		if (!IS_CODEUNIT(wc))
+		{
 			errno = 0x02; // EILSEQ
 			return -1;
 		}
 		*s = wc;
 		return 1;
-	} else if ((unsigned)wc < 0x800) {
-		*s++ = 0xc0 | (wc>>6);
-		*s = 0x80 | (wc&0x3f);
+	}
+	else if ((unsigned)wc < 0x800)
+	{
+		*s++ = 0xc0 | (wc >> 6);
+		*s = 0x80 | (wc & 0x3f);
 		return 2;
-	} else if ((unsigned)wc < 0xd800 || (unsigned)wc-0xe000 < 0x2000) {
-		*s++ = 0xe0 | (wc>>12);
-		*s++ = 0x80 | ((wc>>6)&0x3f);
-		*s = 0x80 | (wc&0x3f);
+	}
+	else if ((unsigned)wc < 0xd800 || (unsigned)wc - 0xe000 < 0x2000)
+	{
+		*s++ = 0xe0 | (wc >> 12);
+		*s++ = 0x80 | ((wc >> 6) & 0x3f);
+		*s = 0x80 | (wc & 0x3f);
 		return 3;
-	} else if ((unsigned)wc-0x10000 < 0x100000) {
-		*s++ = 0xf0 | (wc>>18);
-		*s++ = 0x80 | ((wc>>12)&0x3f);
-		*s++ = 0x80 | ((wc>>6)&0x3f);
-		*s = 0x80 | (wc&0x3f);
+	}
+	else if ((unsigned)wc - 0x10000 < 0x100000)
+	{
+		*s++ = 0xf0 | (wc >> 18);
+		*s++ = 0x80 | ((wc >> 12) & 0x3f);
+		*s++ = 0x80 | ((wc >> 6) & 0x3f);
+		*s = 0x80 | (wc & 0x3f);
 		return 4;
 	}
-	errno = 0x02;//EILSEQ;
+	errno = 0x02; // EILSEQ;
 	return -1;
 }
 int wctomb(char *s, wchar_t wc)
 {
-	if (!s) return 0;
+	if (!s)
+		return 0;
 	return wcrtomb(s, wc, 0);
 }
 #endif
-size_t strlen(const char *s) { const char *a = s;for (; *s; s++);return s-a; }
-size_t strnlen(const char *s, size_t n) { const char *p = memchr(s, 0, n); return p ? p-s : n;}
-void *memset(void *dest, int c, size_t n) { unsigned char *s = dest; for (; n; n--, s++) *s = c; return dest; }
-char *strcpy(char *d, const char *s) { for (; (*d=*s); s++, d++); return d; }
-char *strncpy(char *d, const char *s, size_t n) { for (; n && (*d=*s); n--, s++, d++); return d; }
+size_t strlen(const char *s)
+{
+	const char *a = s;
+	for (; *s; s++)
+		;
+	return s - a;
+}
+size_t strnlen(const char *s, size_t n)
+{
+	const char *p = memchr(s, 0, n);
+	return p ? p - s : n;
+}
+void *memset(void *dest, int c, size_t n)
+{
+	unsigned char *s = dest;
+	for (; n; n--, s++)
+		*s = c;
+	return dest;
+}
+char *strcpy(char *d, const char *s)
+{
+	for (; (*d = *s); s++, d++)
+		;
+	return d;
+}
+char *strncpy(char *d, const char *s, size_t n)
+{
+	for (; n && (*d = *s); n--, s++, d++)
+		;
+	return d;
+}
 int strcmp(const char *l, const char *r)
 {
-	for (; *l==*r && *l; l++, r++);
+	for (; *l == *r && *l; l++, r++)
+		;
 	return *(unsigned char *)l - *(unsigned char *)r;
 }
 int strncmp(const char *_l, const char *_r, size_t n)
 {
-	const unsigned char *l=(void *)_l, *r=(void *)_r;
-	if (!n--) return 0;
-	for (; *l && *r && n && *l == *r ; l++, r++, n--);
+	const unsigned char *l = (void *)_l, *r = (void *)_r;
+	if (!n--)
+		return 0;
+	for (; *l && *r && n && *l == *r; l++, r++, n--)
+		;
 	return *l - *r;
 }
 
 static char *twobyte_strstr(const unsigned char *h, const unsigned char *n)
 {
-	uint16_t nw = n[0]<<8 | n[1], hw = h[0]<<8 | h[1];
-	for (h++; *h && hw != nw; hw = hw<<8 | *++h);
-	return *h ? (char *)h-1 : 0;
+	uint16_t nw = n[0] << 8 | n[1], hw = h[0] << 8 | h[1];
+	for (h++; *h && hw != nw; hw = hw << 8 | *++h)
+		;
+	return *h ? (char *)h - 1 : 0;
 }
 
 static char *threebyte_strstr(const unsigned char *h, const unsigned char *n)
 {
-	uint32_t nw = (uint32_t)n[0]<<24 | n[1]<<16 | n[2]<<8;
-	uint32_t hw = (uint32_t)h[0]<<24 | h[1]<<16 | h[2]<<8;
-	for (h+=2; *h && hw != nw; hw = (hw|*++h)<<8);
-	return *h ? (char *)h-2 : 0;
+	uint32_t nw = (uint32_t)n[0] << 24 | n[1] << 16 | n[2] << 8;
+	uint32_t hw = (uint32_t)h[0] << 24 | h[1] << 16 | h[2] << 8;
+	for (h += 2; *h && hw != nw; hw = (hw | *++h) << 8)
+		;
+	return *h ? (char *)h - 2 : 0;
 }
 
 static char *fourbyte_strstr(const unsigned char *h, const unsigned char *n)
 {
-	uint32_t nw = (uint32_t)n[0]<<24 | n[1]<<16 | n[2]<<8 | n[3];
-	uint32_t hw = (uint32_t)h[0]<<24 | h[1]<<16 | h[2]<<8 | h[3];
-	for (h+=3; *h && hw != nw; hw = hw<<8 | *++h);
-	return *h ? (char *)h-3 : 0;
+	uint32_t nw = (uint32_t)n[0] << 24 | n[1] << 16 | n[2] << 8 | n[3];
+	uint32_t hw = (uint32_t)h[0] << 24 | h[1] << 16 | h[2] << 8 | h[3];
+	for (h += 3; *h && hw != nw; hw = hw << 8 | *++h)
+		;
+	return *h ? (char *)h - 3 : 0;
 }
 
-#define MAX(a,b) ((a)>(b)?(a):(b))
-#define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define BITOP(a,b,op) \
- ((a)[(size_t)(b)/(8*sizeof *(a))] op (size_t)1<<((size_t)(b)%(8*sizeof *(a))))
+#define BITOP(a, b, op) \
+	((a)[(size_t)(b) / (8 * sizeof *(a))] op(size_t) 1 << ((size_t)(b) % (8 * sizeof *(a))))
 
 static char *twoway_strstr(const unsigned char *h, const unsigned char *n)
 {
 	const unsigned char *z;
 	size_t l, ip, jp, k, p, ms, p0, mem, mem0;
-	size_t byteset[32 / sizeof(size_t)] = { 0 };
+	size_t byteset[32 / sizeof(size_t)] = {0};
 	size_t shift[256];
 
 	/* Computing length of needle and fill shift table */
-	for (l=0; n[l] && h[l]; l++)
-		BITOP(byteset, n[l], |=), shift[n[l]] = l+1;
-	if (n[l]) return 0; /* hit the end of h */
+	for (l = 0; n[l] && h[l]; l++)
+		BITOP(byteset, n[l], |=), shift[n[l]] = l + 1;
+	if (n[l])
+		return 0; /* hit the end of h */
 
 	/* Compute maximal suffix */
-	ip = -1; jp = 0; k = p = 1;
-	while (jp+k<l) {
-		if (n[ip+k] == n[jp+k]) {
-			if (k == p) {
+	ip = -1;
+	jp = 0;
+	k = p = 1;
+	while (jp + k < l)
+	{
+		if (n[ip + k] == n[jp + k])
+		{
+			if (k == p)
+			{
 				jp += p;
 				k = 1;
-			} else k++;
-		} else if (n[ip+k] > n[jp+k]) {
+			}
+			else
+				k++;
+		}
+		else if (n[ip + k] > n[jp + k])
+		{
 			jp += k;
 			k = 1;
 			p = jp - ip;
-		} else {
+		}
+		else
+		{
 			ip = jp++;
 			k = p = 1;
 		}
@@ -198,73 +254,104 @@ static char *twoway_strstr(const unsigned char *h, const unsigned char *n)
 	p0 = p;
 
 	/* And with the opposite comparison */
-	ip = -1; jp = 0; k = p = 1;
-	while (jp+k<l) {
-		if (n[ip+k] == n[jp+k]) {
-			if (k == p) {
+	ip = -1;
+	jp = 0;
+	k = p = 1;
+	while (jp + k < l)
+	{
+		if (n[ip + k] == n[jp + k])
+		{
+			if (k == p)
+			{
 				jp += p;
 				k = 1;
-			} else k++;
-		} else if (n[ip+k] < n[jp+k]) {
+			}
+			else
+				k++;
+		}
+		else if (n[ip + k] < n[jp + k])
+		{
 			jp += k;
 			k = 1;
 			p = jp - ip;
-		} else {
+		}
+		else
+		{
 			ip = jp++;
 			k = p = 1;
 		}
 	}
-	if (ip+1 > ms+1) ms = ip;
-	else p = p0;
+	if (ip + 1 > ms + 1)
+		ms = ip;
+	else
+		p = p0;
 
 	/* Periodic needle? */
-	if (memcmp(n, n+p, ms+1)) {
+	if (memcmp(n, n + p, ms + 1))
+	{
 		mem0 = 0;
-		p = MAX(ms, l-ms-1) + 1;
-	} else mem0 = l-p;
+		p = MAX(ms, l - ms - 1) + 1;
+	}
+	else
+		mem0 = l - p;
 	mem = 0;
 
 	/* Initialize incremental end-of-haystack pointer */
 	z = h;
 
 	/* Search loop */
-	for (;;) {
+	for (;;)
+	{
 		/* Update incremental end-of-haystack pointer */
-		if (z-h < l) {
+		if (z - h < l)
+		{
 			/* Fast estimate for MAX(l,63) */
 			size_t grow = l | 63;
 			const unsigned char *z2 = memchr(z, 0, grow);
-			if (z2) {
+			if (z2)
+			{
 				z = z2;
-				if (z-h < l) return 0;
-			} else z += grow;
+				if (z - h < l)
+					return 0;
+			}
+			else
+				z += grow;
 		}
 
 		/* Check last byte first; advance by shift on mismatch */
-		if (BITOP(byteset, h[l-1], &)) {
-			k = l-shift[h[l-1]];
-			if (k) {
-				if (k < mem) k = mem;
+		if (BITOP(byteset, h[l - 1], &))
+		{
+			k = l - shift[h[l - 1]];
+			if (k)
+			{
+				if (k < mem)
+					k = mem;
 				h += k;
 				mem = 0;
 				continue;
 			}
-		} else {
+		}
+		else
+		{
 			h += l;
 			mem = 0;
 			continue;
 		}
 
 		/* Compare right half */
-		for (k=MAX(ms+1,mem); n[k] && n[k] == h[k]; k++);
-		if (n[k]) {
-			h += k-ms;
+		for (k = MAX(ms + 1, mem); n[k] && n[k] == h[k]; k++)
+			;
+		if (n[k])
+		{
+			h += k - ms;
 			mem = 0;
 			continue;
 		}
 		/* Compare left half */
-		for (k=ms+1; k>mem && n[k-1] == h[k-1]; k--);
-		if (k <= mem) return (char *)h;
+		for (k = ms + 1; k > mem && n[k - 1] == h[k - 1]; k--)
+			;
+		if (k <= mem)
+			return (char *)h;
 		h += p;
 		mem = mem0;
 	}
@@ -273,17 +360,25 @@ static char *twoway_strstr(const unsigned char *h, const unsigned char *n)
 char *strstr(const char *h, const char *n)
 {
 	/* Return immediately on empty needle */
-	if (!n[0]) return (char *)h;
+	if (!n[0])
+		return (char *)h;
 
 	/* Use faster algorithms for short needles */
 	h = strchr(h, *n);
-	if (!h || !n[1]) return (char *)h;
-	if (!h[1]) return 0;
-	if (!n[2]) return twobyte_strstr((void *)h, (void *)n);
-	if (!h[2]) return 0;
-	if (!n[3]) return threebyte_strstr((void *)h, (void *)n);
-	if (!h[3]) return 0;
-	if (!n[4]) return fourbyte_strstr((void *)h, (void *)n);
+	if (!h || !n[1])
+		return (char *)h;
+	if (!h[1])
+		return 0;
+	if (!n[2])
+		return twobyte_strstr((void *)h, (void *)n);
+	if (!h[2])
+		return 0;
+	if (!n[3])
+		return threebyte_strstr((void *)h, (void *)n);
+	if (!h[3])
+		return 0;
+	if (!n[4])
+		return fourbyte_strstr((void *)h, (void *)n);
 
 	return twoway_strstr((void *)h, (void *)n);
 }
@@ -291,17 +386,20 @@ char *strstr(const char *h, const char *n)
 char *strchr(const char *s, int c)
 {
 	c = (unsigned char)c;
-	if (!c) return (char *)s + strlen(s);
-	for (; *s && *(unsigned char *)s != c; s++);
+	if (!c)
+		return (char *)s + strlen(s);
+	for (; *s && *(unsigned char *)s != c; s++)
+		;
 	return (char *)s;
 }
-
 
 void *__memrchr(const void *m, int c, size_t n)
 {
 	const unsigned char *s = m;
 	c = (unsigned char)c;
-	while (n--) if (s[n]==c) return (void *)(s+n);
+	while (n--)
+		if (s[n] == c)
+			return (void *)(s + n);
 	return 0;
 }
 
@@ -314,30 +412,38 @@ void *memcpy(void *dest, const void *src, size_t n)
 {
 	unsigned char *d = dest;
 	const unsigned char *s = src;
-	for (; n; n--) *d++ = *s++;
+	for (; n; n--)
+		*d++ = *s++;
 	return dest;
 }
 
 int memcmp(const void *vl, const void *vr, size_t n)
 {
-	const unsigned char *l=vl, *r=vr;
-	for (; n && *l == *r; n--, l++, r++);
-	return n ? *l-*r : 0;
+	const unsigned char *l = vl, *r = vr;
+	for (; n && *l == *r; n--, l++, r++)
+		;
+	return n ? *l - *r : 0;
 }
-
 
 void *memmove(void *dest, const void *src, size_t n)
 {
 	char *d = dest;
 	const char *s = src;
 
-	if (d==s) return d;
-	if ((uintptr_t)s-(uintptr_t)d-n <= -2*n) return memcpy(d, s, n);
+	if (d == s)
+		return d;
+	if ((uintptr_t)s - (uintptr_t)d - n <= -2 * n)
+		return memcpy(d, s, n);
 
-	if (d<s) {
-		for (; n; n--) *d++ = *s++;
-	} else {
-		while (n) n--, d[n] = s[n];
+	if (d < s)
+	{
+		for (; n; n--)
+			*d++ = *s++;
+	}
+	else
+	{
+		while (n)
+			n--, d[n] = s[n];
 	}
 
 	return dest;
@@ -346,15 +452,16 @@ void *memchr(const void *src, int c, size_t n)
 {
 	const unsigned char *s = src;
 	c = (unsigned char)c;
-	for (; n && *s != c; s++, n--);
+	for (; n && *s != c; s++, n--)
+		;
 	return n ? (void *)s : 0;
 }
 
 int puts(const char *s)
 {
-	int sl = strlen( s );
-	_write(0, s, sl );
-	_write(0, "\n", 1 );
+	int sl = strlen(s);
+	_write(0, s, sl);
+	_write(0, "\n", 1);
 	return sl + 1;
 }
 
@@ -405,23 +512,25 @@ int puts(const char *s)
 
 static int
 mini_itoa(long value, unsigned int radix, int uppercase, int unsig,
-	 char *buffer)
+		  char *buffer)
 {
-	char	*pbuffer = buffer;
-	int	negative = 0;
-	int	i, len;
+	char *pbuffer = buffer;
+	int negative = 0;
+	int i, len;
 
 	/* No support for unusual radixes. */
 	if (radix > 16)
 		return 0;
 
-	if (value < 0 && !unsig) {
+	if (value < 0 && !unsig)
+	{
 		negative = 1;
 		value = -value;
 	}
 
 	/* This builds the string back to front ... */
-	do {
+	do
+	{
 		int digit = value % radix;
 		*(pbuffer++) = (digit < 10 ? '0' + digit : (uppercase ? 'A' : 'a') + digit - 10);
 		value /= radix;
@@ -435,42 +544,50 @@ mini_itoa(long value, unsigned int radix, int uppercase, int unsig,
 	/* ... now we reverse it (could do it recursively but will
 	 * conserve the stack space) */
 	len = (pbuffer - buffer);
-	for (i = 0; i < len / 2; i++) {
+	for (i = 0; i < len / 2; i++)
+	{
 		char j = buffer[i];
-		buffer[i] = buffer[len-i-1];
-		buffer[len-i-1] = j;
+		buffer[i] = buffer[len - i - 1];
+		buffer[len - i - 1] = j;
 	}
 
 	return len;
 }
 
 static int
-mini_pad(char* ptr, int len, char pad_char, int pad_to, char *buffer)
+mini_pad(char *ptr, int len, char pad_char, int pad_to, char *buffer)
 {
 	int i;
 	int overflow = 0;
-	char * pbuffer = buffer;
-	if(pad_to == 0) pad_to = len;
-	if(len > pad_to) {
+	char *pbuffer = buffer;
+	if (pad_to == 0)
+		pad_to = len;
+	if (len > pad_to)
+	{
 		len = pad_to;
 		overflow = 1;
 	}
-	for(i = pad_to - len; i > 0; i --) {
+	for (i = pad_to - len; i > 0; i--)
+	{
 		*(pbuffer++) = pad_char;
 	}
-	for(i = len; i > 0; i --) {
+	for (i = len; i > 0; i--)
+	{
 		*(pbuffer++) = *(ptr++);
 	}
 	len = pbuffer - buffer;
-	if(overflow) {
-		for (i = 0; i < 3 && pbuffer > buffer; i ++) {
+	if (overflow)
+	{
+		for (i = 0; i < 3 && pbuffer > buffer; i++)
+		{
 			*(pbuffer-- - 1) = '*';
 		}
 	}
 	return len;
 }
 
-struct mini_buff {
+struct mini_buff
+{
 	char *buffer, *pbuffer;
 	unsigned int buffer_len;
 };
@@ -478,30 +595,33 @@ struct mini_buff {
 static int
 _puts(char *s, int len, void *buf)
 {
-	if(!buf) return len;
+	if (!buf)
+		return len;
 	struct mini_buff *b = buf;
-	char * p0 = b->buffer;
+	char *p0 = b->buffer;
 	int i;
 	/* Copy to buffer */
-	for (i = 0; i < len; i++) {
-		if(b->pbuffer == b->buffer + b->buffer_len - 1) {
+	for (i = 0; i < len; i++)
+	{
+		if (b->pbuffer == b->buffer + b->buffer_len - 1)
+		{
 			break;
 		}
-		*(b->pbuffer ++) = s[i];
+		*(b->pbuffer++) = s[i];
 	}
 	*(b->pbuffer) = 0;
 	return b->pbuffer - p0;
 }
 
 #ifdef MINI_PRINTF_ENABLE_OBJECTS
-static int (*mini_handler) (void* data, void* obj, int ch, int lhint, char** bf) = 0;
-static void (*mini_handler_freeor)(void* data, void*) = 0;
-static void * mini_handler_data = 0;
+static int (*mini_handler)(void *data, void *obj, int ch, int lhint, char **bf) = 0;
+static void (*mini_handler_freeor)(void *data, void *) = 0;
+static void *mini_handler_data = 0;
 
 void mini_printf_set_handler(
-	void* data,
-	int (*handler)(void* data, void* obj, int ch, int len_hint, char** buf),
-	void (*freeor)(void* data, void* buf))
+	void *data,
+	int (*handler)(void *data, void *obj, int ch, int len_hint, char **buf),
+	void (*freeor)(void *data, void *buf))
 {
 	mini_handler = handler;
 	mini_handler_freeor = freeor;
@@ -509,125 +629,151 @@ void mini_printf_set_handler(
 }
 #endif
 
-int
-mini_vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va)
+int mini_vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va)
 {
 	struct mini_buff b;
 	b.buffer = buffer;
 	b.pbuffer = buffer;
 	b.buffer_len = buffer_len;
-	if(buffer_len == 0) buffer = (void*) 0;
-	int n = mini_vpprintf(_puts, (buffer != (void*)0)?&b:(void*)0, fmt, va);
-	if(buffer == (void*) 0) {
+	if (buffer_len == 0)
+		buffer = (void *)0;
+	int n = mini_vpprintf(_puts, (buffer != (void *)0) ? &b : (void *)0, fmt, va);
+	if (buffer == (void *)0)
+	{
 		return n;
 	}
 	return b.pbuffer - b.buffer;
 }
 
-int
-mini_vpprintf(int (*puts)(char* s, int len, void* buf), void* buf, const char *fmt, va_list va)
+int mini_vpprintf(int (*puts)(char *s, int len, void *buf), void *buf, const char *fmt, va_list va)
 {
 	char bf[24];
 	char bf2[24];
 	char ch;
 #ifdef MINI_PRINTF_ENABLE_OBJECTS
-	void* obj;
+	void *obj;
 #endif
-	if(puts == (void*)0) {
+	if (puts == (void *)0)
+	{
 		/* run puts in counting mode. */
-		puts = _puts; buf = (void*)0;
+		puts = _puts;
+		buf = (void *)0;
 	}
 	int n = 0;
-	while ((ch=*(fmt++))) {
+	while ((ch = *(fmt++)))
+	{
 		int len;
-		if (ch!='%') {
+		if (ch != '%')
+		{
 			len = 1;
 			len = puts(&ch, len, buf);
-		} else {
+		}
+		else
+		{
 			char pad_char = ' ';
 			int pad_to = 0;
 			char l = 0;
 			char *ptr;
 
-			ch=*(fmt++);
+			ch = *(fmt++);
 
 			/* Zero padding requested */
-			if (ch == '0') pad_char = '0';
-			while (ch >= '0' && ch <= '9') {
+			if (ch == '0')
+				pad_char = '0';
+			while (ch >= '0' && ch <= '9')
+			{
 				pad_to = pad_to * 10 + (ch - '0');
-				ch=*(fmt++);
+				ch = *(fmt++);
 			}
-			if(pad_to > (signed int) sizeof(bf)) {
+			if (pad_to > (signed int)sizeof(bf))
+			{
 				pad_to = sizeof(bf);
 			}
-			if (ch == 'l') {
+			if (ch == 'l')
+			{
 				l = 1;
-				ch=*(fmt++);
+				ch = *(fmt++);
 			}
 
-			switch (ch) {
-				case 0:
-					goto end;
-				case 'u':
-				case 'd':
-					if(l) {
-						len = mini_itoa(va_arg(va, unsigned long), 10, 0, (ch=='u'), bf2);
-					} else {
-						if(ch == 'u') {
-							len = mini_itoa((unsigned long) va_arg(va, unsigned int), 10, 0, 1, bf2);
-						} else {
-							len = mini_itoa((long) va_arg(va, int), 10, 0, 0, bf2);
-						}
+			switch (ch)
+			{
+			case 0:
+				goto end;
+			case 'u':
+			case 'd':
+				if (l)
+				{
+					len = mini_itoa(va_arg(va, unsigned long), 10, 0, (ch == 'u'), bf2);
+				}
+				else
+				{
+					if (ch == 'u')
+					{
+						len = mini_itoa((unsigned long)va_arg(va, unsigned int), 10, 0, 1, bf2);
 					}
-					len = mini_pad(bf2, len, pad_char, pad_to, bf);
-					len = puts(bf, len, buf);
-					break;
-
-				case 'x':
-				case 'X':
-					if(l) {
-						len = mini_itoa(va_arg(va, unsigned long), 16, (ch=='X'), 1, bf2);
-					} else {
-						len = mini_itoa((unsigned long) va_arg(va, unsigned int), 16, (ch=='X'), 1, bf2);
+					else
+					{
+						len = mini_itoa((long)va_arg(va, int), 10, 0, 0, bf2);
 					}
-					len = mini_pad(bf2, len, pad_char, pad_to, bf);
-					len = puts(bf, len, buf);
-					break;
+				}
+				len = mini_pad(bf2, len, pad_char, pad_to, bf);
+				len = puts(bf, len, buf);
+				break;
 
-				case 'c' :
-					ch = (char)(va_arg(va, int));
-					len = mini_pad(&ch, 1, pad_char, pad_to, bf);
-					len = puts(bf, len, buf);
-					break;
+			case 'x':
+			case 'X':
+				if (l)
+				{
+					len = mini_itoa(va_arg(va, unsigned long), 16, (ch == 'X'), 1, bf2);
+				}
+				else
+				{
+					len = mini_itoa((unsigned long)va_arg(va, unsigned int), 16, (ch == 'X'), 1, bf2);
+				}
+				len = mini_pad(bf2, len, pad_char, pad_to, bf);
+				len = puts(bf, len, buf);
+				break;
 
-				case 's' :
-					ptr = va_arg(va, char*);
-					len = mini_strlen(ptr);
-					if (pad_to > 0) {
-						len = mini_pad(ptr, len, pad_char, pad_to, bf);
-						len = puts(bf, len, buf);
-					} else {
-						len = puts(ptr, len, buf);
-					}
-					break;
+			case 'c':
+				ch = (char)(va_arg(va, int));
+				len = mini_pad(&ch, 1, pad_char, pad_to, bf);
+				len = puts(bf, len, buf);
+				break;
+
+			case 's':
+				ptr = va_arg(va, char *);
+				len = mini_strlen(ptr);
+				if (pad_to > 0)
+				{
+					len = mini_pad(ptr, len, pad_char, pad_to, bf);
+					len = puts(bf, len, buf);
+				}
+				else
+				{
+					len = puts(ptr, len, buf);
+				}
+				break;
 #ifdef MINI_PRINTF_ENABLE_OBJECTS
-				case 'O' :  /* Object by content (e.g. str) */
-				case 'R' :  /* Object by representation (e.g. repr)*/
-					obj = va_arg(va, void*);
-					len = mini_handler(mini_handler_data, obj, ch, pad_to, &ptr);
-					if (pad_to > 0) {
-						len = mini_pad(ptr, len, pad_char, pad_to, bf);
-						len = puts(bf, len, buf);
-					} else {
-						len = puts(ptr, len, buf);
-					}
-					mini_handler_freeor(mini_handler_data, ptr);
-					break;
+			case 'O': /* Object by content (e.g. str) */
+			case 'R': /* Object by representation (e.g. repr)*/
+				obj = va_arg(va, void *);
+				len = mini_handler(mini_handler_data, obj, ch, pad_to, &ptr);
+				if (pad_to > 0)
+				{
+					len = mini_pad(ptr, len, pad_char, pad_to, bf);
+					len = puts(bf, len, buf);
+				}
+				else
+				{
+					len = puts(ptr, len, buf);
+				}
+				mini_handler_freeor(mini_handler_data, ptr);
+				break;
 #endif
-				default:
-					len = 1;
-					len = puts(&ch, len, buf);
-					break;
+			default:
+				len = 1;
+				len = puts(&ch, len, buf);
+				break;
 			}
 		}
 		n = n + len;
@@ -636,8 +782,7 @@ end:
 	return n;
 }
 
-
-int mini_snprintf(char* buffer, unsigned int buffer_len, const char *fmt, ...)
+int mini_snprintf(char *buffer, unsigned int buffer_len, const char *fmt, ...)
 {
 	int ret;
 	va_list va;
@@ -648,7 +793,7 @@ int mini_snprintf(char* buffer, unsigned int buffer_len, const char *fmt, ...)
 	return ret;
 }
 
-int mini_pprintf(int (*puts)(char*s, int len, void* buf), void* buf, const char *fmt, ...)
+int mini_pprintf(int (*puts)(char *s, int len, void *buf), void *buf, const char *fmt, ...)
 {
 	int ret;
 	va_list va;
@@ -660,7 +805,57 @@ int mini_pprintf(int (*puts)(char*s, int len, void* buf), void* buf, const char 
 }
 
 extern uint32_t SYSCON;
-void baremain()
+
+void initial_jump() __attribute__((naked)) __attribute((section(".init")));
+
+void initial_jump(void)
+{
+	asm volatile("\n\
+.option push\n\
+.option norelax\n\
+	la gp, __global_pointer$\n\
+.option pop\n\
+	la sp, _eusrstack\n");
+
+	// Careful: Use registers to prevent overwriting of self-data.
+	// This clears out BSS.
+	asm volatile(
+		"	la a0, _sbss\n\
+	la a1, _ebss\n\
+	li a2, 0\n\
+	bge a0, a1, 2f\n\
+1:	sw a2, 0(a0)\n\
+	addi a0, a0, 4\n\
+	blt a0, a1, 1b\n\
+2:"
+		// This loads DATA from FLASH to RAM.
+		"	la a0, _data_lma\n\
+	la a1, _data_vma\n\
+	la a2, _edata\n\
+1:	beq a1, a2, 2f\n\
+	lw a3, 0(a0)\n\
+	sw a3, 0(a1)\n\
+	addi a0, a0, 4\n\
+	addi a1, a1, 4\n\
+	bne a1, a2, 1b\n\
+2:\n"
+#ifdef CPLUSPLUS
+		// Call __libc_init_array function
+		"	call %0 \n\t"
+		:
+		: "i"(__libc_init_array)
+		: "a0", "a1", "a2", "a3", "a4", "a5", "t0", "t1", "t2", "memory"
+#else
+		:
+		:
+		: "a0", "a1", "a2", "a3", "memory"
+#endif
+	);
+
+	baremain();
+}
+
+void baremain(void)
 {
 	main();
 	SYSCON = 0x5555; // Power off

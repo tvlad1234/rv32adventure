@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "rv32i.h"
 
+uint8_t get_opcode(uint32_t inst);
+
 int exec_op_op(rv32core* core, uint32_t inst);
 int exec_op_imm(rv32core* core, uint32_t inst);
 

@@ -1,80 +1,144 @@
-__heap_size = 0x1000;
-__stack_size = 0x1000;
+ENTRY( initial_jump )
 
-ENTRY(_start)
+MEMORY
+{
+	FLASH (rx) : ORIGIN = 0x80000000, LENGTH = 16K
+	RAM (xrw)  : ORIGIN = 0x20000000, LENGTH = 2K
+}
 
 SECTIONS
 {
-	. = 0x80000000;
-/*
-	.header : ALIGN( 16 )
-	{
-		LONG( 0 )
-		LONG( 0 )
-	}
-*/
-	.text : ALIGN(16) {
-		__TEXT_BEGIN__ = .;
-		*(.initial_jump)
-		*(.entry.text)
-		*(.init.literal)
-		*(.init)
-		*(.text)
-		*(.literal .text .literal.* .text.* .stub)
-		*(.out_jump.literal.*)
-		*(.out_jump.*)
-		__TEXT_END__ = .;
-	}
+    .init :
+    { 
+      _sinit = .;
+      . = ALIGN(16);
+      KEEP(*(SORT_NONE(.init)))
+      . = ALIGN(16);
+      _einit = .;
+    } >FLASH AT>FLASH
 
-	/* If we're on a newer compiler */
-	/DISCARD/ :
-	{
-		*(.interp)
-		*(.dynsym)
-		*(.dynstr)
-		*(.header)
-	} : phdr
+    .text :
+    {
+      . = ALIGN(16);
+      *(.text)
+      *(.text.*)
+      *(.rodata)
+      *(.rodata*)
+      *(.gnu.linkonce.t.*)
+      . = ALIGN(16);
+    } >FLASH AT>FLASH 
 
-	.data : ALIGN(16) {
-		__DATA_BEGIN__ = .;
-		*(.rodata)
-		*(.rodata.*)
-		*(.gnu.linkonce.r.*)
-		*(.rodata1)
-		*(.dynsbss)
-		*(.gnu.linkonce.sb.*)
-		*(.scommon)
-		*(.gnu.linkonce.sb2.*)
-		*(.sbss)
-		*(.sbss.*)
-		*(.sbss2)
-		*(.sbss2.*)
-		*(.dynbss)
-		*(.data)
-		*(.data.*)
-		*(.got)
-		*(.got.*)
-		__DATA_END__ = .;
-	}
+    .fini :
+    {
+      KEEP(*(SORT_NONE(.fini)))
+      . = ALIGN(16);
+    } >FLASH AT>FLASH
 
-	.bss : ALIGN( 16 ) {
-		__BSS_BEGIN__ = .;
-		*(.bss) /* Tricky: BSS needs to be allocated but not sent. GCC Will not populate these for calculating data size */
-		*(.bss.*)
-		__BSS_END__ = .;
-	}
+    .preinit_array :
+    {
+      PROVIDE_HIDDEN (__preinit_array_start = .);
+      KEEP (*(.preinit_array))
+      PROVIDE_HIDDEN (__preinit_array_end = .);
+    } >FLASH AT>FLASH 
+  
+    .init_array :
+    {
+      PROVIDE_HIDDEN (__init_array_start = .);
+      KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+      KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
+      PROVIDE_HIDDEN (__init_array_end = .);
+    } >FLASH AT>FLASH 
+  
+    .fini_array :
+    {
+      PROVIDE_HIDDEN (__fini_array_start = .);
+      KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+      KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
+      PROVIDE_HIDDEN (__fini_array_end = .);
+    } >FLASH AT>FLASH 
+  
+    .ctors :
+    {
+      /* gcc uses crtbegin.o to find the start of
+         the constructors, so we make sure it is
+         first.  Because this is a wildcard, it
+         doesn't matter if the user does not
+         actually link against crtbegin.o; the
+         linker won't look for a file to match a
+         wildcard.  The wildcard also means that it
+         doesn't matter which directory crtbegin.o
+         is in.  */
+      KEEP (*crtbegin.o(.ctors))
+      KEEP (*crtbegin?.o(.ctors))
+      /* We don't want to include the .ctor section from
+         the crtend.o file until after the sorted ctors.
+         The .ctor section from the crtend file contains the
+         end of ctors marker and it must be last */
+      KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
+      KEEP (*(SORT(.ctors.*)))
+      KEEP (*(.ctors))
+    } >FLASH AT>FLASH 
+  
+    .dtors :
+    {
+      KEEP (*crtbegin.o(.dtors))
+      KEEP (*crtbegin?.o(.dtors))
+      KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .dtors))
+      KEEP (*(SORT(.dtors.*)))
+      KEEP (*(.dtors))
+    } >FLASH AT>FLASH 
 
-	.heap : ALIGN( 16 ) {
-		_sheap = .;
-		. = . + __heap_size;
-		_eheap = .;
-	}
+    .dalign :
+    {
+      . = ALIGN(16);
+      PROVIDE(_data_vma = .);
+    } >RAM AT>FLASH  
 
-	.stack : ALIGN( 16 ) {
-		_estack = .;
-		. = . + __stack_size;
-		_sstack = .;
-	}
+    .dlalign :
+    {
+      . = ALIGN(16); 
+      PROVIDE(_data_lma = .);
+    } >FLASH AT>FLASH
+
+    .data :
+    {
+      . = ALIGN(16);
+      *(.gnu.linkonce.r.*)
+      *(.data .data.*)
+      *(.gnu.linkonce.d.*)
+      . = ALIGN(8);
+      PROVIDE( __global_pointer$ = . + 0x800 );
+      *(.sdata .sdata.*)
+      *(.sdata2*)
+      *(.gnu.linkonce.s.*)
+      . = ALIGN(8);
+      *(.srodata.cst16)
+      *(.srodata.cst8)
+      *(.srodata.cst4)
+      *(.srodata.cst2)
+      *(.srodata .srodata.*)
+      . = ALIGN(16);
+      PROVIDE( _edata = .);
+    } >RAM AT>FLASH
+
+    .bss :
+    {
+      . = ALIGN(16);
+      PROVIDE( _sbss = .);
+      *(.sbss*)
+      *(.gnu.linkonce.sb.*)
+      *(.bss*)
+      *(.gnu.linkonce.b.*)    
+      *(COMMON*)
+      . = ALIGN(16);
+      PROVIDE( _ebss = .);
+    } >RAM AT>FLASH
+
+    PROVIDE( _end = _ebss);
+	PROVIDE( end = . );
+
+	PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));	
+
 
 	PROVIDE( SYSCON = 0x11100000 );
 	PROVIDE( UART = 0x10000000 );

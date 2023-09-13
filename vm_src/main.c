@@ -41,14 +41,14 @@ int main(int argc, char* argv[])
 	size_t filesize = ftell(binfile);
 	fseek(binfile, 0, SEEK_SET);
 
-	if (filesize > RAM_SIZE)
+	if (filesize > ROM_SIZE)
 	{
-		printf("File %s exceeds RAM size by %d bytes\n", argv[1], filesize - RAM_SIZE);
+		printf("File %s exceeds ROM size by %d bytes\n", argv[1], filesize - ROM_SIZE);
 		fclose(binfile);
 		exit(-2);
 	}
 
-	fread(cpu.ram, 1, filesize, binfile);
+	fread(cpu.rom, 1, filesize, binfile);
 	fclose(binfile);
 
 	int fault = 0;
@@ -82,6 +82,10 @@ int main(int argc, char* argv[])
 
 	case PC_OUT_OF_RANGE:
 		printf("PC out of range!\n");
+		break;
+
+	case WRITE_ROM:
+		printf("Tried to write in ROM!\n");
 		break;
 
 	case SYSCON_SHUTDOWN:
